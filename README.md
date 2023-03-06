@@ -193,3 +193,158 @@ class ProductDetail(APIView):
 }
 ```
 > kodunu ekledik. ardından Product.vue içerisinde product'a dönen değerleri ekleyen bir yapı kurduk
+
+Daha sonra store dosyası içerisindeki index.js içerisine 
+
+```javascript
+export default createStore({
+  state: {
+    cart: {
+      items:[]
+    },
+    isAuthenticated: false,
+    token: '',
+    isLoading: false
+  },
+  getters: {
+  },
+  mutations: {
+  },
+  actions: {
+  },
+  modules: {
+  }
+})
+```
+> kodunu ekledik burada amacımız cart' ulaşmak için otentike mi değil mi diye kontrol işlemini yapabilmek
+
+Daha sonra yine store dosyası içerisindeki index.js içerisine 
+```Javascript
+import { createStore } from 'vuex'
+
+export default createStore({
+  state: {
+    cart: {
+      items:[]
+    },
+    isAuthenticated: false,
+    token: '',
+    isLoading: false
+  },
+  getters: {
+  },
+  mutations: {
+    initializeStore(state){
+      if(localStorage.getItem('cart')){
+        state.cart = JSON.parse(localStorage.getItem('cart'))
+      }
+      else{
+        localStorage.setItem('cart',JSON.stringify(state.cart))
+      }
+    },
+    addToCart(state, item){
+      const exists = state.cart.items.filter(i=> i.product.id === item.product.id)
+      if(exists.length){
+        exists[0].quantity = parseInt(exists[0].quantity + parseInt(item.quantity))
+      }
+      else{
+        state.cart.items.push(item)
+      }
+      localStorage.setItem('cart',JSON.stringify(state.cart))
+    }
+  },
+  actions: {
+  },
+  modules: {
+  }
+})
+``` 
+> kodunu ekledik mutation ile işlem yaptık
+
+Initiliaze Store in App.vue
+> daha sonra App.vue içerisine tanımladığımız storeları çağırmamız gerektiği için gidip
+```Javascript
+beforeCreate(){
+    this.$store.commit('initializeStore')
+  }
+```
+> bu kodu ekledik
+>
+Daha sonra carta eklenmiş ürünlerin saysını görebilmek için şunşarı yaptık
+
+```Javascript
+<span>Cart ({{ cartTotalLength }})</span> template içerisine bunu ekledik ve computed içersinde scriptte sayım yaptık
+computed:{
+    cartTotalLength(){
+      let totalLength = 0
+      
+      for (let i = 0; i < this.cart.items.length; i++) {
+        totalLength += this.cart.items[i].quantity
+      }
+      return totalLength;
+    }
+  }
+```
+
+Bunların ardından store içerisinde bulunan addToCart mutationunu kullanmak için this.$store.commit('addToCart',item) şeklinde carta ekleme işlemini yapabilen bir kısmı Product.vue içerisine yazdık
+```Javascript
+addToCart(){
+      if(isNaN(this.quantity) || this.quantity < 1){
+        this.quantity = 1
+      }
+      const item = {
+        product: this.product,
+        quantity: this.quantity
+      }
+      this.$store.commit('addToCart',item);
+    }
+
+bunun ardından App.vue içerisine mounted olduğunda gelmesi için şu kodu ekledik
+mounted(){
+    this.cart = this.$store.state.cart;
+  },
+  kodunu ekledik
+```
+Daha sonra alttaki kütüphaneyi yükledik
+> npm install bulma-toast 
+
+daha sonra Product.vue içerisine şunları ekledik
+
+```Javascript
+import { toast } from 'bulma-toast';
+addToCart methodu içerisine 
+toast({
+        message: 'The product was added to the cart',
+        type: 'is-success',
+        dismissible: true,
+        pauseOnHover: true,
+        duration: 2000,
+        position: 'bottom-right'
+      
+      })
+bu şekilde bir ekleme yaptık
+```
+> yukarıdaki toast sayesinde bir işlem başarılıysa sağda küçük bir başarıyla eklendi pop-up'ı çıkartıyor
+
+
+Implemeting a Loading Bar loading bar ekliyoruz buraya 
+> bunu yapmak için Product.vue getProduct methodunun içerisine başına ve sonuna
+```Javascript
+this.$store.commit('setIsLoading', true)
+...
+this.$store.commit('setIsLoading', false)
+```
+kodlarını ekledik
+> ayrıca methodu asycn yapıp axios ile attıoğımı isteği await hale getirdik bunu dışında bunu kullanmaak istediğimiz yerlere ekledik 
+> store dosyası içerisindeki index.js dosyasına 
+```Javascript
+setIsLoading(state, status) {
+      state.isLoading = status
+    },
+```
+
+kodunu ekleyerek yönetimini sağladık
+
+Set document title
+> document.title = this.product.name + ' | Djackets' bunun sayesinde sekmede adının ne olarak görüneceğini vermiş oluyorum bunu da Product.vue içerisinde yaptık
+> ayrıca document.title = ' Home | Djackets' bunu da mounted içerisine HomeView.vue dosyasına ekledik ki sekmede nerede olduğumuz belli olsun
