@@ -348,3 +348,101 @@ kodunu ekleyerek yönetimini sağladık
 Set document title
 > document.title = this.product.name + ' | Djackets' bunun sayesinde sekmede adının ne olarak görüneceğini vermiş oluyorum bunu da Product.vue içerisinde yaptık
 > ayrıca document.title = ' Home | Djackets' bunu da mounted içerisine HomeView.vue dosyasına ekledik ki sekmede nerede olduğumuz belli olsun
+
+Category sayfasını göstermek için şimdi product içerisindeki views'a gideceğiz
+> view içerisine daha önceden yaptığımız gibi 
+```Python
+class CategoryDetail(APIView):
+    def get_object(self, category_slug):
+        try:
+            return Category.objects.get(slug=category_slug)
+        except Product.DoesNotExist:
+            raise Http404
+    def get(self, request, category_slug, format=None):
+        product = self.get_object(category_slug)
+        serializer = CategorySerializer(product)
+        return Response(serializer.data)
+```
+> kodunu ekledik 
+
+Daha sonra CategorySerializer için serializer oluşturmamış gerekiyordu ve bunu oluşturduk
+
+```Python
+class CategorySerializer(serializers.ModelSerializer):
+    products = ProductSerializers(many=True)
+    class Meta:
+        model = Category
+        fields = (
+            "id",
+            "name",
+            "products",
+            "get_absolute_url"
+        )
+```
+> Bunun ardından urls.py içerisine gidip path('products/<slug:category_slug>/', views.CategoryDetail.as_view()), kodunu ekledik
+
+
+Şimdi bunları gösterebilmek için Category.vue adında bir dosya oluşturuyoruz
+> bunun içerisine göstermek istediğimiz html formatını yazdık daha sonra kategori için ayrı bir yer oluşturduk ve aşağıdaki gibi çağırdık
+```Javascript
+<script>
+import axios from 'axios'
+import {toast} from 'bulma-toast'
+export default {
+    name: 'Category',
+    data(){
+        return{
+            category:{
+                products: []
+            }
+        }
+    },
+    mounted(){
+        this.getCategory()
+    }
+    methods: {
+        async getCategory(){
+
+            const categorySlug = this.$route.params.category_slug
+            
+            this.$store.commit('setIsLoading',true)
+
+            await axios.get(`/api/v1/products/${categorySlug}`)
+                .then(response => {
+                    this.category = response.data
+
+                    document.title = this.category.name + '| Djackets'
+                })
+                .catch(err => {
+                    console.log('err :>> ', err);
+                    toast({
+                        message: 'Something went wrong. Please try again.',
+                        type: 'is-danger',
+                        dismissible: true,
+                        pauseOnHover: true,
+                        duration: 2000,
+                        position: 'bottom-right'
+                    
+                    })
+                })
+
+            this.$store.commit('setIsLoading',false)
+
+        }
+    }
+}
+</script>
+```
+
+Bunların ardından bunu router dosyası içerisinde bulunan index.js dosyasının içerisinde bir tanım yapmamız gerekiyordu onu da aşağıdaki yaptık
+
+```Javascript
+import Category from '../views/Category.vue';
+
+{
+    path: '/:category_slug',
+    name: 'Category',
+    component: Category
+  }
+```
+routes listesi içerisine yukarıdaki gibi ekledik
