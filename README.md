@@ -445,4 +445,65 @@ import Category from '../views/Category.vue';
     component: Category
   }
 ```
-routes listesi içerisine yukarıdaki gibi ekledik
+routes listesi içerisine yukarıdaki gibi ekledik 
+
+Daha sonra kategorilerdeki ürünleri gösteren bir yer ayarladık ve fazlaca kullanılan bir yeri direkt olarak component olarak atadık onun adı da ProductBox.vue dosyası
+ve categoriler arası geçiş yapabilmek adına gidip Category.vue dosyasına watch ekledik
+```Javascript
+watch:{
+        $route(to, from){
+            if(to.name === 'Category'){
+                this.getCategory()
+            }
+        }
+    },
+```
+
+Add Search Functioniality search yapmak için ihtiyacımız olan şey
+views içerisine gittik ve view içerisine şunları ekledik
+
+```Python
+@api_view(['POST'])
+def search(request):
+    query = request.data.get('query', '')
+    
+    if query:
+        products = Product.objects.filter(Q(name__icontains=query) | Q(description__icontains=query))
+        serializer = ProductSerializers(products,many=True)
+        return Response(serializer.data)
+    else:
+        return Response({'products':[]})
+```
+ardından urls içerisine gidip 
+path('products/search/',views.search), pathini ekledik
+
+Daha sonra arama yapabilmek için frontend'e ekleme işlemlerini yaptık App.vue içersine
+
+```HTML
+<div class="navbar-start">
+          <div class="navbar-item">
+            <form method="get" action="/search">
+              <div class="field has-addons">
+                <div class="control">
+                  <input type="text" class="input" placeholder="What are you looking for?" name="query">
+                </div>
+                <div class="control">
+                  <button class="button is-success"><span class="icon"><i class="fas fa-search"></i></span></button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+```
+
+bu şekilde ekledik 
+daha sonra Search.vue adında bir dosya oluşturduk yapmak istediklerimizi yaptık ekledik ve ardından router içerisindeki index.js'ye yolunu ekledik
+
+```Javascript
+import Search from '../views/Search.vue';
+{
+    path: '/search',
+    name: 'Search',
+    component: Search
+  }
+```

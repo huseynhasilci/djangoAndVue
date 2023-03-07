@@ -1,10 +1,12 @@
 from django.shortcuts import render
+from django.db.models import Q
 from django.http import Http404
 from .serializers import ProductSerializers, CategorySerializer
 from .models import Product,Category
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 
 class LatestProductsList(APIView):
     def get(self, request, format=None):
@@ -35,3 +37,14 @@ class CategoryDetail(APIView):
         product = self.get_object(category_slug)
         serializer = CategorySerializer(product)
         return Response(serializer.data)
+    
+@api_view(['POST'])
+def search(request):
+    query = request.data.get('query', '')
+    
+    if query:
+        products = Product.objects.filter(Q(name__icontains=query) | Q(description__icontains=query))
+        serializer = ProductSerializers(products,many=True)
+        return Response(serializer.data)
+    else:
+        return Response({'products':[]})
