@@ -1,3 +1,4 @@
+Anlaşılmayan bir yer olursa diye bu linkten bakılabilir https://www.youtube.com/watch?v=Yg5zkd9nm6w&list=PL9B8lSoNJPThNbrFqt6-xPK1ZdbpgJ6ln&index=87&t=1697s
 # djangoAndVue
 
 # Install and setup (Django)
@@ -506,4 +507,247 @@ import Search from '../views/Search.vue';
     name: 'Search',
     component: Search
   }
+```  
+
+View Cart
+
+Cart.vue adında bir view oluşturduk.
+
+SignUp.vue dosyasının oluşturulması oluşturuldu
+
+Login sayfası oluşturma işlemi yapma bunu da yaptık ardından  my account page oluşturuyoruz
+
+şimdu burada router dosyasi içerisindeki index.js dosyasının içerisine 
+
+```javascript
+{
+    path: '/my-account',
+    name: 'MyAccount',
+    component: MyAccount,
+    meta:{
+      requireLogin: true
+    }
+router.beforeEach((to, from, next) => {
+  if (to.matched.some(record => record.meta.requireLogin) && !store.state.isAuthenticated) {
+    next({ name: 'LogIn', query: { to: to.path } });
+  } else {
+    next()
+  }
+})
 ```
+bu kodu ekledik ki giriş yapılmadan myaccount kısmına erişelemesin
+
+daha sonra checkout işlemini yaptık
+
+şimdi settings.py dosyasına gidip
+
+STRIPE_SECRET_KEY = 'sk_test_51HIHiuKBJV2qeWbD4IBpAODack7r7r9LJ0Y65zSFx7jUUwgy2nfKEgQGvorv1p2xp7tgMsJ5N9EW7K1lBdPnFnyK00kdrS27cj' 
+
+bu kodu içerisine ekliyoruz
+
+şimdi django üzerinde yeni bir app'e ihtiyacımız var 
+
+python .\manage.py startapp order yazarak yeni bir app oluşturduk
+
+settigns'e gidip INSTALLED_APPS içerisine order'ı ekledik bunu ekledik
+
+daha sonra models.py dosyasını 
+```Python
+from django.contrib.auth.models import User
+from django.db import models
+
+from product.models import Product
+
+class Order(models.Model):
+    user = models.ForeignKey(User, related_name='orders', on_delete=models.CASCADE)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.CharField(max_length=100)
+    address = models.CharField(max_length=100)
+    zipcode = models.CharField(max_length=100)
+    place = models.CharField(max_length=100)
+    phone = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid_amount = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    stripe_token = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ['-created_at',]
+    
+    def __str__(self):
+        return self.first_name
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='items', on_delete=models.CASCADE)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    quantity = models.IntegerField(default=1)
+
+    def __str__(self):
+        return '%s' % self.id
+```
+bu şekilde doldurduk
+
+bunları yaptıkdan sonra migration yapmamız lazım bu yüzden 
+python .\manage.py makemigrations 
+python .\manage.py migrate   
+diyerek migrate ettik
+
+şimdi views içerisine giriyoruz view içerisine 
+```Python
+import stripe
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.http import Http404
+from django.shortcuts import render
+
+from rest_framework import status, authentication, permissions
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .models import Order, OrderItem
+from .serializers import OrderSerializer, MyOrderSerializer
+
+@api_view(['POST'])
+@authentication_classes([authentication.TokenAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def checkout(request):
+    serializer = OrderSerializer(data=request.data)
+
+    if serializer.is_valid():
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        paid_amount = sum(item.get('quantity') * item.get('product').price for item in serializer.validated_data['items'])
+
+        try:
+            charge = stripe.Charge.create(
+                amount=int(paid_amount * 100),
+                currency='USD',
+                description='Charge from Djackets',
+                source=serializer.validated_data['stripe_token']
+            )
+
+            serializer.save(user=request.user, paid_amount=paid_amount)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class OrdersList(APIView):
+    authentication_classes = [authentication.TokenAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, format=None):
+        orders = Order.objects.filter(user=request.user)
+        serializer = MyOrderSerializer(orders, many=True)
+        return Response(serializer.data)
+```
+
+bunları ekledik
+
+bunları yaparken aynı zamanda serializers'da ekledik
+
+```Python
+from rest_framework import serializers
+
+from .models import Order, OrderItem
+
+from product.serializers import ProductSerializer
+
+class MyOrderItemSerializer(serializers.ModelSerializer):    
+    product = ProductSerializer()
+
+    class Meta:
+        model = OrderItem
+        fields = (
+            "price",
+            "product",
+            "quantity",
+        )
+
+class MyOrderSerializer(serializers.ModelSerializer):
+    items = MyOrderItemSerializer(many=True)
+
+    class Meta:
+        model = Order
+        fields = (
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "address",
+            "zipcode",
+            "place",
+            "phone",
+            "stripe_token",
+            "items",
+            "paid_amount"
+        )
+
+class OrderItemSerializer(serializers.ModelSerializer):    
+    class Meta:
+        model = OrderItem
+        fields = (
+            "price",
+            "product",
+            "quantity",
+        )
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
+
+    class Meta:
+        model = Order
+        fields = (
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "address",
+            "zipcode",
+            "place",
+            "phone",
+            "stripe_token",
+            "items",
+        )
+    
+    def create(self, validated_data):
+        items_data = validated_data.pop('items')
+        order = Order.objects.create(**validated_data)
+
+        for item_data in items_data:
+            OrderItem.objects.create(order=order, **item_data)
+            
+        return order
+```
+
+bunları yaptıktan sonra urlleri ekledik urls.py içerisine 
+```Python
+from django.urls import path
+
+from order import views
+
+urlpatterns = [
+    path('checkout/', views.checkout),
+    path('orders/', views.OrdersList.as_view()),  
+]
+```
+
+ardından ana proje içerisindeki url içerisine path('api/v1/', include('order.urls')), bu url'i ekledik
+
+
+daha sonra admin.py içerisine giderek modellerimizi kaydettik.
+
+```Python
+from django.contrib import admin
+
+from .models import Order, OrderItem
+
+admin.site.register(Order)
+```
+
+
+Eğer ki bir delopy işlemi olursa videoya bakıp yapabilirsin
