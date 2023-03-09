@@ -1,4 +1,8 @@
-Anlaşılmayan bir yer olursa diye bu linkten bakılabilir https://www.youtube.com/watch?v=Yg5zkd9nm6w&list=PL9B8lSoNJPThNbrFqt6-xPK1ZdbpgJ6ln&index=87&t=1697s
+Anlaşılmayan bir yer olursa diye bu linkten bakılabilir https://www.youtube.com/watch?v=Yg5zkd9nm6w&list=PL9B8lSoNJPThNbrFq
+https://github.com/SteinOveHelset/djackets_vue
+https://github.com/SteinOveHelset/djackets_django
+
+t6-xPK1ZdbpgJ6ln&index=87&t=1697s
 # djangoAndVue
 
 # Install and setup (Django)
